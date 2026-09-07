@@ -2,529 +2,410 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>つなげ！町工場 〜奇跡のサプライチェーン〜</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1b2432">
+<meta name="description" content="自作アプリを公開するアプリストア">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231b2432'/%3E%3Ctext x='50' y='66' font-size='52' text-anchor='middle'%3E🧰%3C/text%3E%3C/svg%3E">
+<title>My App Store</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
+  :root{
+    --bg:#1b2432; --panel:#0d1420; --card:#233042; --card2:#2b3a4f;
+    --text:#f0ead6; --muted:#9fb3c8; --accent:#ffd166; --accent2:#ff9f68;
+    --green:#06d6a0; --blue:#5aa9e6; --line:#34455c;
+    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{
-    height:100%;
-    background:#1b2432;
-    font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;
-    color:#f0ead6;
-    overscroll-behavior:none;
-    -webkit-user-select:none; user-select:none;
-    -webkit-tap-highlight-color:transparent;
+    background:var(--bg); color:var(--text);
+    font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,system-ui,sans-serif;
+    -webkit-tap-highlight-color:transparent; min-height:100%;
   }
-  #app{
-    max-width:420px; margin:0 auto; height:100%;
-    display:flex; flex-direction:column; position:relative;
-  }
+  button{ font-family:inherit; }
+  a{ color:inherit; }
+
+  #wrap{ max-width:720px; margin:0 auto; padding:calc(12px + var(--sat)) 16px calc(40px + var(--sab)); }
+
   /* ---- ヘッダー ---- */
-  #hud{
-    padding:10px 14px 6px;
+  header{ display:flex; align-items:center; gap:12px; padding:6px 0 14px; }
+  #logo{
+    width:44px; height:44px; border-radius:12px; background:var(--panel);
+    display:grid; place-items:center; font-size:24px; flex:none;
+    box-shadow:0 2px 0 #000 inset;
   }
-  #stageName{ font-size:13px; color:#ffd166; font-weight:bold; letter-spacing:1px;}
-  #hudRow{
-    display:flex; justify-content:space-between; align-items:baseline; margin-top:4px;
+  #storeName{ font-size:20px; font-weight:bold; color:var(--accent); line-height:1.2; text-shadow:0 2px 0 #7a4a12; }
+  #storeTagline{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+  /* ---- 検索 ---- */
+  #searchWrap{ position:relative; }
+  #search{
+    width:100%; font-size:16px; padding:12px 40px 12px 42px; border-radius:14px;
+    border:1px solid var(--line); background:var(--panel); color:var(--text); outline:none;
   }
-  #money{ font-size:22px; font-weight:bold; color:#fff;}
-  #money small{ font-size:12px; color:#9fb3c8;}
-  #turns{ font-size:14px; color:#9fb3c8;}
-  #turns b{ font-size:20px; color:#ff9f68;}
-  #barWrap{
-    height:10px; background:#0d1420; border-radius:5px; margin-top:6px; overflow:hidden;
+  #search:focus{ border-color:var(--blue); }
+  #search::placeholder{ color:#6f8299; }
+  #searchIcon{ position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:16px; pointer-events:none; }
+  #clearSearch{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    border:none; background:transparent; color:var(--muted); font-size:18px; padding:6px 8px; cursor:pointer; display:none;
   }
-  #bar{
-    height:100%; width:0%;
-    background:linear-gradient(90deg,#06d6a0,#ffd166);
-    border-radius:5px; transition:width .4s;
+  #clearSearch.show{ display:block; }
+
+  /* ---- カテゴリタブ ---- */
+  #tabs{ display:flex; gap:8px; overflow-x:auto; padding:12px 0 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  #tabs::-webkit-scrollbar{ display:none; }
+  .tab{
+    flex:none; border:1px solid var(--line); background:var(--panel); color:var(--muted);
+    border-radius:20px; padding:7px 14px; font-size:13px; font-weight:bold; cursor:pointer; white-space:nowrap;
   }
-  #goalText{ font-size:11px; color:#9fb3c8; margin-top:3px; text-align:right;}
-  /* ---- 盤面 ---- */
-  #boardWrap{ flex:1; display:flex; align-items:center; justify-content:center; min-height:0;}
-  canvas{ touch-action:none; display:block; }
-  /* ---- 職人ゲージ ---- */
-  #master{
-    padding:6px 14px 14px; font-size:12px; color:#9fb3c8;
+  .tab.active{ background:var(--accent); color:var(--bg); border-color:var(--accent); }
+
+  /* ---- ツールバー ---- */
+  #toolbar{ display:flex; justify-content:space-between; align-items:center; padding:10px 2px 6px; font-size:12px; color:var(--muted); }
+  #sort{ border:1px solid var(--line); background:var(--panel); color:var(--text); border-radius:8px; padding:5px 8px; font-size:12px; }
+
+  /* ---- セクション ---- */
+  h2{ font-size:14px; color:var(--accent); letter-spacing:1px; margin:18px 2px 10px; display:flex; align-items:center; gap:8px; }
+  h2 small{ color:var(--muted); font-weight:normal; letter-spacing:0; }
+
+  /* ---- おすすめ（横スクロール） ---- */
+  #featured{ display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; scrollbar-width:none; }
+  #featured::-webkit-scrollbar{ display:none; }
+  .hero{
+    flex:none; width:min(86%,320px); scroll-snap-align:start; cursor:pointer;
+    background:linear-gradient(135deg,#2b3a4f,#1f2a3a); border:1px solid var(--line);
+    border-radius:18px; padding:16px; display:flex; gap:14px; align-items:center;
   }
-  #masterRow{ display:flex; align-items:center; gap:8px;}
-  #masterGaugeWrap{ flex:1; height:8px; background:#0d1420; border-radius:4px; overflow:hidden;}
-  #masterGauge{ height:100%; width:0%; background:#5aa9e6; border-radius:4px; transition:width .3s;}
-  #masterLv{ color:#ffd166; font-weight:bold; white-space:nowrap;}
-  /* ---- トースト（製品完成） ---- */
+  .hero .icon{ font-size:44px; width:64px; height:64px; }
+  .hero .name{ font-size:17px; }
+
+  /* ---- カードグリッド ---- */
+  #grid,#recent{ display:grid; grid-template-columns:1fr; gap:10px; }
+  @media (min-width:560px){ #grid,#recent{ grid-template-columns:1fr 1fr; } }
+  .card{
+    display:flex; gap:12px; align-items:center; background:var(--card);
+    border:1px solid var(--line); border-radius:16px; padding:12px; cursor:pointer;
+    transition:transform .08s, background .15s;
+  }
+  .card:active{ transform:scale(.985); background:var(--card2); }
+  .icon{
+    flex:none; width:56px; height:56px; border-radius:14px; background:var(--panel);
+    display:grid; place-items:center; font-size:30px; overflow:hidden;
+  }
+  .icon img{ width:100%; height:100%; object-fit:cover; }
+  .meta{ flex:1; min-width:0; }
+  .name{ font-size:15px; font-weight:bold; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tagline{ font-size:12px; color:var(--muted); margin-top:3px; line-height:1.5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .chips{ display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+  .chip{ font-size:10px; padding:1px 7px; border-radius:6px; background:var(--panel); color:var(--blue); font-weight:bold; }
+  .chip.cat{ color:var(--green); }
+  .chip.new{ background:var(--accent2); color:var(--bg); }
+  .open{
+    flex:none; font-size:13px; font-weight:bold; color:var(--bg);
+    background:linear-gradient(180deg,var(--accent),var(--accent2));
+    border:none; border-radius:20px; padding:9px 16px; box-shadow:0 3px 0 #b06a2c; cursor:pointer;
+    text-decoration:none;
+  }
+  .open:active{ transform:translateY(2px); box-shadow:0 1px 0 #b06a2c; }
+
+  #empty{ text-align:center; color:var(--muted); font-size:13px; padding:40px 0; line-height:1.8; display:none; }
+  #empty.show{ display:block; }
+
+  footer{ text-align:center; color:#6f8299; font-size:11px; margin-top:36px; line-height:1.8; }
+
+  /* ---- 詳細シート ---- */
+  #backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s; }
+  #backdrop.show{ opacity:1; pointer-events:auto; }
+  #sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:50; max-width:720px; margin:0 auto;
+    background:var(--panel); border-radius:22px 22px 0 0; border-top:1px solid var(--line);
+    max-height:92vh; overflow-y:auto; padding:10px 20px calc(24px + var(--sab));
+    transform:translateY(105%); transition:transform .25s cubic-bezier(.2,.8,.2,1);
+  }
+  #sheet.show{ transform:translateY(0); }
+  #grip{ width:40px; height:5px; border-radius:3px; background:var(--line); margin:0 auto 14px; }
+  #sheetHead{ display:flex; gap:14px; align-items:center; }
+  #sheetHead .icon{ width:72px; height:72px; font-size:40px; border-radius:18px; background:var(--card); }
+  #sheetName{ font-size:20px; font-weight:bold; color:#fff; line-height:1.3; }
+  #sheetTagline{ font-size:13px; color:var(--muted); margin-top:4px; }
+  #sheetInfo{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .info{ font-size:11px; color:var(--muted); background:var(--card); border-radius:8px; padding:5px 9px; }
+  .info b{ color:var(--text); }
+  #sheetActions{ display:flex; gap:10px; margin-top:16px; }
+  #sheetActions .open{ flex:1; text-align:center; padding:14px; font-size:16px; border-radius:30px; }
+  .ghost{
+    flex:none; border:1px solid var(--line); background:transparent; color:var(--text);
+    border-radius:30px; padding:0 16px; font-size:14px; cursor:pointer;
+  }
+  #shots{ display:flex; gap:10px; overflow-x:auto; margin-top:16px; scrollbar-width:none; }
+  #shots img{ height:220px; border-radius:12px; border:1px solid var(--line); flex:none; }
+  #sheetDesc{ font-size:13px; line-height:1.9; color:#cfd8e3; margin-top:16px; white-space:pre-line; }
+  #sheetTags{ margin-top:12px; }
+  #closeSheet{ position:absolute; right:14px; top:12px; border:none; background:var(--card); color:var(--muted);
+    width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; }
+
+  /* ---- トースト ---- */
   #toast{
-    position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(.8);
-    background:rgba(13,20,32,.92); border:2px solid #ffd166; border-radius:14px;
-    padding:14px 22px; text-align:center; opacity:0; pointer-events:none;
-    transition:all .25s; z-index:20; min-width:230px;
+    position:fixed; left:50%; bottom:calc(30px + var(--sab)); transform:translateX(-50%) translateY(20px);
+    background:var(--accent); color:var(--bg); font-weight:bold; font-size:13px;
+    padding:10px 18px; border-radius:20px; opacity:0; pointer-events:none; transition:all .2s; z-index:60;
   }
-  #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1);}
-  #toastName{ font-size:16px; font-weight:bold; color:#ffd166;}
-  #toastMoney{ font-size:22px; font-weight:bold; color:#06d6a0; margin-top:4px;}
-  #toastDetail{ font-size:11px; color:#9fb3c8; margin-top:4px;}
-  /* ---- オーバーレイ画面 ---- */
-  .screen{
-    position:absolute; inset:0; z-index:30;
-    background:rgba(13,20,32,.94);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; padding:28px; gap:14px;
-  }
-  .screen.hidden{ display:none; }
-  .title-main{ font-size:30px; font-weight:bold; color:#ffd166; line-height:1.3; text-shadow:0 3px 0 #7a4a12;}
-  .title-sub{ font-size:15px; color:#5aa9e6; font-weight:bold; letter-spacing:2px;}
-  .story{ font-size:13px; line-height:1.9; color:#cfd8e3; max-width:320px;}
-  .btn{
-    font-size:17px; font-weight:bold; color:#1b2432;
-    background:linear-gradient(180deg,#ffd166,#ff9f68);
-    border:none; border-radius:30px; padding:14px 46px;
-    box-shadow:0 4px 0 #b06a2c; cursor:pointer;
-    font-family:inherit;
-  }
-  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #b06a2c;}
-  .rules{
-    font-size:12px; line-height:1.9; color:#cfd8e3; text-align:left;
-    background:#0d1420; border-radius:12px; padding:14px 18px; max-width:330px;
-  }
-  .rules b{ color:#ffd166;}
-  .chip{ display:inline-block; border-radius:6px; padding:1px 7px; font-weight:bold; font-size:11px; margin:0 1px;}
-  .chip.m{ background:#8d99ae; color:#1b2432;}
-  .chip.t{ background:#5aa9e6; color:#1b2432;}
-  .chip.d{ background:#f4989c; color:#1b2432;}
-  .chip.s{ background:#06d6a0; color:#1b2432;}
-  .big{ font-size:26px; font-weight:bold;}
-  .clear{ color:#06d6a0;}
-  .fail{ color:#ff6b6b;}
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="hud">
-    <div id="stageName">ステージ1</div>
-    <div id="hudRow">
-      <div id="money">0<small> 万円</small></div>
-      <div id="turns">残りターン <b>8</b></div>
+<div id="wrap">
+  <header>
+    <div id="logo">🧰</div>
+    <div>
+      <div id="storeName">My App Store</div>
+      <div id="storeTagline"></div>
     </div>
-    <div id="barWrap"><div id="bar"></div></div>
-    <div id="goalText">目標 1,500万円</div>
+  </header>
+
+  <div id="searchWrap">
+    <span id="searchIcon">🔍</span>
+    <input id="search" type="search" placeholder="アプリを検索" autocomplete="off" aria-label="アプリを検索">
+    <button id="clearSearch" aria-label="検索をクリア">✕</button>
   </div>
 
-  <div id="boardWrap"><canvas id="board"></canvas></div>
+  <div id="tabs"></div>
 
-  <div id="master">
-    <div id="masterRow">
-      <span>🧓 技術承継</span>
-      <div id="masterGaugeWrap"><div id="masterGauge"></div></div>
-      <span id="masterLv">職人Lv1 (×1.0)</span>
-    </div>
+  <section id="featuredSec">
+    <h2>⭐ おすすめ</h2>
+    <div id="featured"></div>
+  </section>
+
+  <section id="recentSec" style="display:none">
+    <h2>🕘 最近開いたアプリ</h2>
+    <div id="recent"></div>
+  </section>
+
+  <div id="toolbar">
+    <span id="count"></span>
+    <label>並び替え
+      <select id="sort">
+        <option value="updated">新着順</option>
+        <option value="name">名前順</option>
+      </select>
+    </label>
   </div>
 
-  <div id="toast">
-    <div id="toastName"></div>
-    <div id="toastMoney"></div>
-    <div id="toastDetail"></div>
-  </div>
+  <div id="grid"></div>
+  <div id="empty">該当するアプリがありません。<br>検索ワードやカテゴリを変えてみてください。</div>
 
-  <!-- タイトル画面 -->
-  <div id="titleScreen" class="screen">
-    <div class="title-sub">〜奇跡のサプライチェーン〜</div>
-    <div class="title-main">つなげ！<br>町工場</div>
-    <div class="rules">
-      <b>あそびかた</b><br>
-      <span class="chip m">🔩 素材</span> から始めて
-      <span class="chip t">🏭 技術</span> を通り、
-      <span class="chip s">🏪 販売</span> でつなぎ終えると製品が完成！<br>
-      ・となり合うマスを一筆書きでなぞろう<br>
-      ・<span class="chip d">🎨 デザイン</span> を通すと売上 <b>×1.5</b><br>
-      ・長くつなぐほど高く売れる！<br>
-      ・製品を作るたびに <b>技術承継ゲージ</b> がたまり、職人がパワーアップ
-    </div>
-    <button class="btn" id="startBtn">再生をはじめる</button>
-  </div>
-
-  <!-- ステージ導入 -->
-  <div id="stageScreen" class="screen hidden">
-    <div class="title-sub" id="stageTitle"></div>
-    <div class="story" id="stageStory"></div>
-    <div class="story" id="stageMission" style="color:#ffd166;font-weight:bold;"></div>
-    <button class="btn" id="stageBtn">スタート</button>
-  </div>
-
-  <!-- リザルト -->
-  <div id="resultScreen" class="screen hidden">
-    <div class="big" id="resultTitle"></div>
-    <div class="story" id="resultText"></div>
-    <button class="btn" id="resultBtn"></button>
-  </div>
+  <footer id="footer"></footer>
 </div>
 
+<div id="backdrop"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetName">
+  <div id="grip"></div>
+  <button id="closeSheet" aria-label="閉じる">✕</button>
+  <div id="sheetHead">
+    <div class="icon" id="sheetIcon"></div>
+    <div class="meta">
+      <div id="sheetName"></div>
+      <div id="sheetTagline"></div>
+    </div>
+  </div>
+  <div id="sheetInfo"></div>
+  <div id="sheetActions">
+    <a class="open" id="sheetOpen" target="_blank" rel="noopener">開く</a>
+    <button class="ghost" id="shareBtn">共有</button>
+  </div>
+  <div id="shots"></div>
+  <div id="sheetDesc"></div>
+  <div id="sheetTags" class="chips"></div>
+</div>
+<div id="toast"></div>
+
+<script src="apps.js"></script>
 <script>
-"use strict";
-/* ============ 定数 ============ */
-const COLS = 6, ROWS = 7;
-const TYPES = {
-  M: { icon:"🔩", label:"素材",   color:"#8d99ae", weight:30 },
-  T: { icon:"🏭", label:"技術",   color:"#5aa9e6", weight:30 },
-  D: { icon:"🎨", label:"デザイン", color:"#f4989c", weight:15 },
-  S: { icon:"🏪", label:"販売",   color:"#06d6a0", weight:25 },
-};
-const STAGES = [
-  { name:"ステージ1：錆びついた工場街",
-    story:"後継者不足で廃業寸前の工場街。まずは眠っている技術と素材をつないで、運転資金を稼ごう。",
-    target:1500, turns:8 },
-  { name:"ステージ2：商店街の復活",
-    story:"隣町の商店街から業務提携のオファーが！販路が広がったが、返すべき債務も大きい。",
-    target:4000, turns:8 },
-  { name:"ステージ3：地域ブランドへ",
-    story:"ついに地域ぐるみのブランド立ち上げへ。デザインの力を活かして、大ヒット商品を生み出せ！",
-    target:9000, turns:9 },
-];
-const GAUGE_MAX = 15;          // 承継ゲージ満タンに必要なポイント
-const ADJ_RADIUS = 0.42;       // タッチ判定の半径（セル比）
+(function(){
+  const STORE = window.APP_STORE || { name:"My App Store", apps:[] };
+  const APPS  = (STORE.apps || []).filter(a => a && a.id && a.name);
+  const $ = id => document.getElementById(id);
+  const RECENT_KEY = "appstore.recent";
+  const NEW_DAYS = 14;
 
-const PRODUCT_ADJ = ["奇跡の","匠の","下町の","未来型","名物"];
-const PRODUCT_PLAIN = ["スマホスタンド","工具セット","キッチンツール","自転車パーツ","収納ラック"];
-const PRODUCT_DESIGN = ["デザイン雑貨","北欧風ランプ","アートな文具","おしゃれ鉄器","限定トートバッグ"];
+  // ---- 状態 ----
+  let query = "", category = "すべて", sort = "updated";
 
-/* ============ 状態 ============ */
-let grid = [];        // grid[r][c] = {type, drop(px落下オフセット)}
-let chain = [];       // なぞり中のセル [{r,c},...]
-let dragging = false;
-let pointerPos = null;
-let money = 0, turns = 0, stageIdx = 0;
-let masterLv = 1, gauge = 0;
-let playing = false;
+  // ---- 初期表示 ----
+  document.title = STORE.name || "My App Store";
+  $("storeName").textContent = STORE.name || "My App Store";
+  $("storeTagline").textContent = STORE.tagline || "";
+  $("footer").innerHTML = `${esc(STORE.owner || "")}<br>アプリ ${APPS.length} 件`;
 
-/* ============ DOM ============ */
-const $ = id => document.getElementById(id);
-const canvas = $("board"), ctx = canvas.getContext("2d");
-let cell = 58, boardW = 0, boardH = 0, dpr = 1;
-
-/* ============ 盤面生成 ============ */
-function randType(){
-  const total = Object.values(TYPES).reduce((a,t)=>a+t.weight,0);
-  let r = Math.random()*total;
-  for (const k of Object.keys(TYPES)){
-    r -= TYPES[k].weight;
-    if (r < 0) return k;
+  // ---- ユーティリティ ----
+  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function iconHTML(a){
+    const ic = a.icon || "📦";
+    return /\.(png|jpe?g|svg|webp|gif)$/i.test(ic) || ic.startsWith("data:") || ic.startsWith("http")
+      ? `<img src="${esc(ic)}" alt="">` : esc(ic);
   }
-  return "M";
-}
-function newGrid(){
-  grid = [];
-  for (let r=0;r<ROWS;r++){
-    const row = [];
-    for (let c=0;c<COLS;c++) row.push({ type:randType(), drop:0 });
-    grid.push(row);
+  function isNew(a){
+    if(!a.updated) return false;
+    const d = (Date.now() - new Date(a.updated).getTime()) / 864e5;
+    return d >= 0 && d <= NEW_DAYS;
   }
-  // 詰み防止：各タイプ最低3個保証
-  for (const k of Object.keys(TYPES)){
-    let count = 0;
-    for (const row of grid) for (const cellObj of row) if (cellObj.type===k) count++;
-    while (count < 3){
-      const r = Math.floor(Math.random()*ROWS), c = Math.floor(Math.random()*COLS);
-      grid[r][c].type = k; count++;
+  function fmtDate(s){
+    if(!s) return "";
+    const d = new Date(s); if(isNaN(d)) return s;
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+  }
+  function toast(msg){
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1800);
+  }
+  function getRecent(){ try{ return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); }catch{ return []; } }
+  function pushRecent(id){
+    try{
+      const r = [id, ...getRecent().filter(x => x !== id)].slice(0, 6);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(r));
+    }catch{}
+  }
+  function appURL(a){
+    return a.url || "#";
+  }
+
+  // ---- カテゴリタブ ----
+  function renderTabs(){
+    const cats = ["すべて", ...new Set(APPS.map(a => a.category).filter(Boolean))];
+    $("tabs").innerHTML = cats.map(c =>
+      `<button class="tab${c===category?" active":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+  }
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest(".tab"); if(!b) return;
+    category = b.dataset.cat; renderTabs(); renderGrid();
+  });
+
+  // ---- フィルタ・並び替え ----
+  function filtered(){
+    const q = query.trim().toLowerCase();
+    let list = APPS.filter(a => category === "すべて" || a.category === category);
+    if(q){
+      list = list.filter(a => [a.name, a.tagline, a.description, a.category, ...(a.tags||[])]
+        .join(" ").toLowerCase().includes(q));
     }
-  }
-}
-
-/* ============ サイズ調整 ============ */
-function resize(){
-  const wrap = $("boardWrap");
-  const availW = Math.min(wrap.clientWidth, 420) - 16;
-  const availH = wrap.clientHeight - 8;
-  cell = Math.floor(Math.min(availW / COLS, availH / ROWS));
-  cell = Math.max(40, Math.min(cell, 66));
-  boardW = cell * COLS; boardH = cell * ROWS;
-  dpr = window.devicePixelRatio || 1;
-  canvas.width = boardW * dpr; canvas.height = boardH * dpr;
-  canvas.style.width = boardW + "px"; canvas.style.height = boardH + "px";
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-window.addEventListener("resize", resize);
-
-/* ============ 描画 ============ */
-function roundRect(x,y,w,h,rad){
-  ctx.beginPath();
-  ctx.moveTo(x+rad,y);
-  ctx.arcTo(x+w,y,x+w,y+h,rad);
-  ctx.arcTo(x+w,y+h,x,y+h,rad);
-  ctx.arcTo(x,y+h,x,y,rad);
-  ctx.arcTo(x,y,x+w,y,rad);
-  ctx.closePath();
-}
-function center(rc){ return { x: rc.c*cell + cell/2, y: rc.r*cell + cell/2 + grid[rc.r][rc.c].drop }; }
-function inChain(r,c){ return chain.some(p=>p.r===r&&p.c===c); }
-
-function draw(){
-  ctx.clearRect(0,0,boardW,boardH);
-  // セル
-  for (let r=0;r<ROWS;r++){
-    for (let c=0;c<COLS;c++){
-      const cellObj = grid[r][c];
-      const t = TYPES[cellObj.type];
-      const x = c*cell, y = r*cell + cellObj.drop;
-      const pad = cell*0.06;
-      const selected = inChain(r,c);
-      ctx.save();
-      if (selected){ ctx.shadowColor = "#ffd166"; ctx.shadowBlur = 12; }
-      ctx.fillStyle = selected ? "#ffffff" : t.color;
-      roundRect(x+pad, y+pad, cell-pad*2, cell-pad*2, cell*0.18);
-      ctx.fill();
-      ctx.restore();
-      if (selected){
-        ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 3;
-        roundRect(x+pad, y+pad, cell-pad*2, cell-pad*2, cell*0.18);
-        ctx.stroke();
-      }
-      ctx.font = `${Math.floor(cell*0.42)}px serif`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(t.icon, x+cell/2, y+cell/2 - cell*0.08);
-      ctx.font = `bold ${Math.floor(cell*0.17)}px sans-serif`;
-      ctx.fillStyle = "#1b2432";
-      ctx.fillText(t.label, x+cell/2, y+cell/2 + cell*0.28);
-    }
-  }
-  // つなぎ線
-  if (chain.length > 0){
-    const valid = isValidChain();
-    ctx.strokeStyle = valid ? "rgba(6,214,160,.85)" : "rgba(255,209,102,.75)";
-    ctx.lineWidth = cell*0.14; ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.beginPath();
-    const p0 = center(chain[0]);
-    ctx.moveTo(p0.x, p0.y);
-    for (let i=1;i<chain.length;i++){
-      const p = center(chain[i]); ctx.lineTo(p.x, p.y);
-    }
-    if (dragging && pointerPos) ctx.lineTo(pointerPos.x, pointerPos.y);
-    ctx.stroke();
-  }
-}
-function tick(){
-  // 落下アニメ
-  for (const row of grid) for (const cellObj of row){
-    if (cellObj.drop < 0) cellObj.drop = Math.min(0, cellObj.drop + cell*0.15);
-  }
-  draw();
-  requestAnimationFrame(tick);
-}
-
-/* ============ チェーン判定 ============ */
-function isValidChain(){
-  if (chain.length < 3) return false;
-  if (grid[chain[0].r][chain[0].c].type !== "M") return false;
-  if (grid[chain[chain.length-1].r][chain[chain.length-1].c].type !== "S") return false;
-  return chain.some(p => grid[p.r][p.c].type === "T");
-}
-function chainCounts(){
-  const n = { M:0, T:0, D:0, S:0 };
-  for (const p of chain) n[grid[p.r][p.c].type]++;
-  return n;
-}
-
-/* ============ 入力 ============ */
-function posToCell(e){
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left, y = e.clientY - rect.top;
-  pointerPos = { x, y };
-  const c = Math.floor(x / cell), r = Math.floor(y / cell);
-  if (r<0||r>=ROWS||c<0||c>=COLS) return null;
-  const cx = c*cell + cell/2, cy = r*cell + cell/2;
-  const dist = Math.hypot(x-cx, y-cy);
-  if (dist > cell*ADJ_RADIUS) return null;   // マスの中心付近のみ反応
-  return { r, c };
-}
-function isAdjacent(a,b){
-  return Math.abs(a.r-b.r)<=1 && Math.abs(a.c-b.c)<=1 && !(a.r===b.r&&a.c===b.c);
-}
-canvas.addEventListener("pointerdown", e => {
-  if (!playing) return;
-  try{ canvas.setPointerCapture(e.pointerId); }catch(err){ /* 合成イベント等では無視 */ }
-  const p = posToCell(e);
-  if (p && grid[p.r][p.c].type === "M"){
-    dragging = true; chain = [p]; beep(440, .05);
-  }
-});
-canvas.addEventListener("pointermove", e => {
-  if (!dragging) return;
-  const p = posToCell(e);
-  if (!p) return;
-  const last = chain[chain.length-1];
-  // 一つ前に戻る（指を戻したら取り消し）
-  if (chain.length >= 2){
-    const prev = chain[chain.length-2];
-    if (p.r===prev.r && p.c===prev.c){ chain.pop(); beep(330,.04); return; }
-  }
-  if (!inChain(p.r,p.c) && isAdjacent(last,p)){
-    chain.push(p);
-    beep(440 + chain.length*40, .05);
-  }
-});
-canvas.addEventListener("pointerup", () => {
-  if (!dragging) return;
-  dragging = false; pointerPos = null;
-  if (isValidChain()) completeProduct();
-  chain = [];
-});
-canvas.addEventListener("pointercancel", () => { dragging = false; chain = []; pointerPos = null; });
-
-/* ============ 製品完成 ============ */
-function masterMult(){ return 1 + (masterLv - 1) * 0.2; }
-
-function completeProduct(){
-  const n = chainCounts();
-  const len = chain.length;
-  let revenue = len * 80;                 // 基本：1マス80万円
-  revenue += Math.max(0, n.M - 1) * 40;   // 追加素材ボーナス
-  const designMult = 1 + n.D * 0.5;
-  revenue = Math.round(revenue * designMult * masterMult());
-
-  money += revenue;
-  turns--;
-
-  // 製品名
-  const adj = PRODUCT_ADJ[Math.floor(Math.random()*PRODUCT_ADJ.length)];
-  const pool = n.D > 0 ? PRODUCT_DESIGN : PRODUCT_PLAIN;
-  const item = pool[Math.floor(Math.random()*pool.length)];
-  showToast(`『${adj}${item}』完成！`, `+${revenue.toLocaleString()}万円`,
-    `${len}社連携${n.D>0?` ／ デザイン×${designMult}`:""}${masterLv>1?` ／ 職人×${masterMult().toFixed(1)}`:""}`);
-  beep(880,.1); setTimeout(()=>beep(1174,.15), 90);
-
-  // 承継ゲージ
-  gauge += len;
-  while (gauge >= GAUGE_MAX){
-    gauge -= GAUGE_MAX; masterLv++;
-    setTimeout(()=>showToast("🧓→🧑 技術承継 成功！", `職人Lv${masterLv}`, `売上倍率 ×${masterMult().toFixed(1)} にアップ`), 1300);
+    list.sort((x, y) => sort === "name"
+      ? String(x.name).localeCompare(String(y.name), "ja")
+      : String(y.updated||"").localeCompare(String(x.updated||"")));
+    return list;
   }
 
-  // 使ったマスを消して落下補充
-  removeAndRefill();
-  updateHud();
-
-  // 勝敗判定（トーストが見えるよう少し待つ）
-  setTimeout(()=>{
-    if (money >= STAGES[stageIdx].target) stageClear();
-    else if (turns <= 0) stageFail();
-  }, 1100);
-}
-
-function removeAndRefill(){
-  const used = new Set(chain.map(p=>`${p.r},${p.c}`));
-  for (let c=0;c<COLS;c++){
-    const remain = [];
-    for (let r=ROWS-1;r>=0;r--){
-      if (!used.has(`${r},${c}`)) remain.push(grid[r][c]);
-    }
-    for (let r=ROWS-1;r>=0;r--){
-      const idx = ROWS-1-r;
-      if (idx < remain.length){
-        const from = grid.findIndex ? null : null; // noop
-        grid[r][c] = remain[idx];
-      } else {
-        grid[r][c] = { type:randType(), drop:-(cell*(idx-remain.length+1)+cell*0.5) };
-      }
-    }
+  // ---- カード ----
+  function cardHTML(a, cls="card"){
+    const chips = [
+      a.category ? `<span class="chip cat">${esc(a.category)}</span>` : "",
+      isNew(a) ? `<span class="chip new">NEW</span>` : "",
+      ...(a.tags||[]).slice(0,3).map(t => `<span class="chip">${esc(t)}</span>`)
+    ].join("");
+    return `<div class="${cls}" data-id="${esc(a.id)}" role="button" tabindex="0">
+      <div class="icon">${iconHTML(a)}</div>
+      <div class="meta">
+        <div class="name">${esc(a.name)}</div>
+        <div class="tagline">${esc(a.tagline || "")}</div>
+        <div class="chips">${chips}</div>
+      </div>
+      <a class="open" href="${esc(appURL(a))}" target="_blank" rel="noopener" data-open="${esc(a.id)}">開く</a>
+    </div>`;
   }
-}
 
-/* ============ HUD / トースト ============ */
-function updateHud(){
-  const st = STAGES[stageIdx];
-  $("stageName").textContent = st.name;
-  $("money").innerHTML = `${money.toLocaleString()}<small> 万円</small>`;
-  $("turns").innerHTML = `残りターン <b>${turns}</b>`;
-  $("bar").style.width = Math.min(100, money/st.target*100) + "%";
-  $("goalText").textContent = `目標 ${st.target.toLocaleString()}万円`;
-  $("masterGauge").style.width = (gauge/GAUGE_MAX*100) + "%";
-  $("masterLv").textContent = `職人Lv${masterLv} (×${masterMult().toFixed(1)})`;
-}
-let toastTimer = null;
-function showToast(name, moneyText, detail){
-  $("toastName").textContent = name;
-  $("toastMoney").textContent = moneyText;
-  $("toastDetail").textContent = detail;
-  const t = $("toast");
-  t.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>t.classList.remove("show"), 1400);
-}
+  function renderFeatured(){
+    const f = APPS.filter(a => a.featured);
+    $("featuredSec").style.display = f.length && !query && category === "すべて" ? "" : "none";
+    $("featured").innerHTML = f.map(a => cardHTML(a, "hero")).join("");
+  }
+  function renderRecent(){
+    const ids = getRecent();
+    const list = ids.map(id => APPS.find(a => a.id === id)).filter(Boolean);
+    const show = list.length && !query && category === "すべて";
+    $("recentSec").style.display = show ? "" : "none";
+    $("recent").innerHTML = list.map(a => cardHTML(a)).join("");
+  }
+  function renderGrid(){
+    const list = filtered();
+    $("grid").innerHTML = list.map(a => cardHTML(a)).join("");
+    $("empty").classList.toggle("show", list.length === 0);
+    $("count").textContent = `${list.length} 件`;
+    renderFeatured(); renderRecent();
+  }
 
-/* ============ 画面遷移 ============ */
-function showStageIntro(){
-  playing = false;
-  const st = STAGES[stageIdx];
-  $("stageTitle").textContent = st.name;
-  $("stageStory").textContent = st.story;
-  $("stageMission").textContent = `ミッション：${st.turns}ターン以内に ${st.target.toLocaleString()}万円 を稼げ！`;
-  $("stageScreen").classList.remove("hidden");
-}
-function startStage(){
-  const st = STAGES[stageIdx];
-  money = 0; turns = st.turns; gauge = (stageIdx===0 && masterLv===1) ? 0 : gauge;
-  newGrid(); updateHud();
-  $("stageScreen").classList.add("hidden");
-  playing = true;
-}
-function stageClear(){
-  if (!playing) return;
-  playing = false;
-  const last = stageIdx === STAGES.length-1;
-  $("resultTitle").textContent = last ? "🎉 全ステージクリア！" : "✨ ステージクリア！";
-  $("resultTitle").className = "big clear";
-  $("resultText").textContent = last
-    ? `町はすっかり活気を取り戻した。あなたのつないだサプライチェーンは、地域の未来そのものだ。（最終職人Lv${masterLv}）`
-    : `債務を完済！ ${money.toLocaleString()}万円を稼ぎ、町に明かりが戻ってきた。`;
-  $("resultBtn").textContent = last ? "タイトルへ" : "次のステージへ";
-  $("resultBtn").onclick = () => {
-    $("resultScreen").classList.add("hidden");
-    if (last){
-      stageIdx = 0; masterLv = 1; gauge = 0;
-      $("titleScreen").classList.remove("hidden");
-    } else {
-      stageIdx++; showStageIntro();
-    }
-  };
-  $("resultScreen").classList.remove("hidden");
-}
-function stageFail(){
-  if (!playing) return;
-  playing = false;
-  $("resultTitle").textContent = "💧 資金ショート…";
-  $("resultTitle").className = "big fail";
-  $("resultText").textContent = `目標まであと ${(STAGES[stageIdx].target - money).toLocaleString()}万円 足りなかった。だが職人の技は残っている。もう一度挑戦しよう。`;
-  $("resultBtn").textContent = "リトライ";
-  $("resultBtn").onclick = () => {
-    $("resultScreen").classList.add("hidden");
-    showStageIntro();
-  };
-  $("resultScreen").classList.remove("hidden");
-}
+  // ---- クリック（カード → 詳細 / 開くボタン → 起動） ----
+  document.addEventListener("click", e => {
+    const open = e.target.closest("[data-open]");
+    if(open){ pushRecent(open.dataset.open); return; } // リンク遷移はそのまま
+    const card = e.target.closest("[data-id]");
+    if(card) openSheet(card.dataset.id);
+  });
+  document.addEventListener("keydown", e => {
+    if(e.key === "Enter" && e.target.matches("[data-id]")) openSheet(e.target.dataset.id);
+    if(e.key === "Escape") closeSheet();
+  });
 
-$("startBtn").onclick = () => {
-  $("titleScreen").classList.add("hidden");
-  stageIdx = 0; masterLv = 1; gauge = 0;
-  showStageIntro();
-};
-$("stageBtn").onclick = startStage;
+  // ---- 検索・並び替え ----
+  $("search").addEventListener("input", e => {
+    query = e.target.value; $("clearSearch").classList.toggle("show", !!query); renderGrid();
+  });
+  $("clearSearch").addEventListener("click", () => {
+    query = ""; $("search").value = ""; $("clearSearch").classList.remove("show"); renderGrid(); $("search").focus();
+  });
+  $("sort").addEventListener("change", e => { sort = e.target.value; renderGrid(); });
 
-/* ============ サウンド（シンプルなビープ） ============ */
-let audioCtx = null;
-function beep(freq, dur){
-  try{
-    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = "triangle"; o.frequency.value = freq;
-    g.gain.setValueAtTime(.12, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + dur);
-    o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime + dur);
-  }catch(e){ /* 音が出ない環境でも続行 */ }
-}
+  // ---- 詳細シート ----
+  let current = null;
+  function openSheet(id){
+    const a = APPS.find(x => x.id === id); if(!a) return;
+    current = a;
+    $("sheetIcon").innerHTML = iconHTML(a);
+    $("sheetName").textContent = a.name;
+    $("sheetTagline").textContent = a.tagline || "";
+    $("sheetInfo").innerHTML = [
+      a.category ? `<span class="info">カテゴリ <b>${esc(a.category)}</b></span>` : "",
+      a.version  ? `<span class="info">バージョン <b>${esc(a.version)}</b></span>` : "",
+      a.updated  ? `<span class="info">更新 <b>${esc(fmtDate(a.updated))}</b></span>` : "",
+      a.platform ? `<span class="info">環境 <b>${esc(a.platform)}</b></span>` : "",
+      /^https?:/i.test(a.url||"") ? `<span class="info">外部サイト</span>` : ""
+    ].join("");
+    $("sheetOpen").href = appURL(a);
+    $("sheetOpen").dataset.open = a.id;
+    $("shots").innerHTML = (a.screenshots||[]).map(s => `<img src="${esc(s)}" alt="${esc(a.name)} のスクリーンショット" loading="lazy">`).join("");
+    $("shots").style.display = (a.screenshots||[]).length ? "" : "none";
+    $("sheetDesc").textContent = a.description || a.tagline || "";
+    $("sheetTags").innerHTML = (a.tags||[]).map(t => `<span class="chip">${esc(t)}</span>`).join("");
+    $("backdrop").classList.add("show"); $("sheet").classList.add("show");
+    if(location.hash !== `#app=${a.id}`) history.replaceState(null, "", `#app=${encodeURIComponent(a.id)}`);
+  }
+  function closeSheet(){
+    if(!current) return;
+    current = null;
+    $("backdrop").classList.remove("show"); $("sheet").classList.remove("show");
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  $("backdrop").addEventListener("click", closeSheet);
+  $("closeSheet").addEventListener("click", closeSheet);
 
-/* ============ 起動 ============ */
-resize();
-newGrid();
-updateHud();
-tick();
+  async function shareLink(){
+    if(!current) return;
+    const url = new URL(location.href); url.hash = `app=${encodeURIComponent(current.id)}`;
+    const data = { title: current.name, text: current.tagline || current.name, url: url.toString() };
+    if(navigator.share){ try{ await navigator.share(data); return; }catch{} }
+    try{ await navigator.clipboard.writeText(data.url); toast("リンクをコピーしました"); }
+    catch{ prompt("このリンクをコピーしてください", data.url); }
+  }
+  $("shareBtn").addEventListener("click", shareLink);
+
+  // ---- ハッシュから直接開く ----
+  function fromHash(){
+    const m = location.hash.match(/^#app=([^&]+)/);
+    if(m) openSheet(decodeURIComponent(m[1]));
+  }
+  window.addEventListener("hashchange", fromHash);
+
+  renderTabs(); renderGrid(); fromHash();
+})();
 </script>
 </body>
 </html>
