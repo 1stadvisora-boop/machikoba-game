@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>こえメーター 〜声の大きさチェック〜</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body{
+    height:100%;
+    background:#1b2432;
+    font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;
+    color:#f0ead6;
+    overscroll-behavior:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{
+    max-width:420px; margin:0 auto; min-height:100%;
+    display:flex; flex-direction:column; padding:14px 14px 24px; gap:12px;
+  }
+  h1{ font-size:18px; color:#ffd166; letter-spacing:1px; }
+  h1 small{ font-size:11px; color:#9fb3c8; font-weight:normal; margin-left:6px; }
+  .card{
+    background:#0d1420; border-radius:14px; padding:14px;
+    border:1px solid #243247;
+  }
+  /* ---- メイン表示 ---- */
+  #mainCard{ text-align:center; position:relative; }
+  #status{
+    font-size:13px; color:#9fb3c8; min-height:18px;
+  }
+  #db{ font-size:72px; font-weight:bold; line-height:1.05; margin-top:4px; font-variant-numeric:tabular-nums; }
+  #db small{ font-size:16px; color:#9fb3c8; margin-left:4px; font-weight:normal; }
+  #label{
+    display:inline-block; margin-top:6px; padding:4px 16px; border-radius:20px;
+    font-size:15px; font-weight:bold; background:#243247; color:#f0ead6;
+    transition:background .2s,color .2s;
+  }
+  #label.quiet{ background:#1f3b5a; color:#8fd3ff; }
+  #label.good{ background:#0f5a48; color:#7dffd6; }
+  #label.loud{ background:#7a2d1e; color:#ffb199; }
+  /* ゲージ */
+  #gaugeWrap{
+    position:relative; height:26px; margin-top:14px;
+    background:#1b2432; border-radius:13px; overflow:hidden;
+  }
+  #gaugeBg{
+    position:absolute; inset:0;
+    background:linear-gradient(90deg,#5aa9e6 0%,#06d6a0 35%,#ffd166 65%,#ff6b6b 100%);
+    opacity:.25;
+  }
+  #gauge{
+    position:absolute; left:0; top:0; bottom:0; width:0%;
+    background:linear-gradient(90deg,#5aa9e6,#06d6a0,#ffd166,#ff6b6b);
+    border-radius:13px; transition:width .06s linear;
+  }
+  #target{
+    position:absolute; top:0; bottom:0; border-left:2px dashed #fff; border-right:2px dashed #fff;
+    opacity:.7; pointer-events:none;
+  }
+  #peakMark{
+    position:absolute; top:0; bottom:0; width:3px; background:#fff; opacity:.9;
+    transition:left .1s;
+  }
+  #ticks{ display:flex; justify-content:space-between; font-size:10px; color:#9fb3c8; margin-top:4px; }
+  /* 統計 */
+  #stats{ display:flex; justify-content:space-around; margin-top:12px; }
+  .stat{ text-align:center; }
+  .stat b{ display:block; font-size:22px; color:#fff; font-variant-numeric:tabular-nums; }
+  .stat span{ font-size:11px; color:#9fb3c8; }
+  /* グラフ */
+  canvas#graph{ width:100%; height:110px; display:block; border-radius:8px; background:#0a1019; }
+  /* ボタン */
+  .btnRow{ display:flex; gap:10px; }
+  button{
+    flex:1; padding:14px; border:none; border-radius:12px;
+    font-size:16px; font-weight:bold; cursor:pointer;
+    font-family:inherit; color:#1b2432; background:#ffd166;
+    -webkit-user-select:none; user-select:none;
+  }
+  button:active{ transform:scale(.97); }
+  button.sub{ background:#243247; color:#f0ead6; }
+  button.stop{ background:#ff6b6b; color:#fff; }
+  button:disabled{ opacity:.45; cursor:default; }
+  /* 設定 */
+  .row{ display:flex; align-items:center; gap:10px; font-size:13px; margin-top:8px; }
+  .row label{ flex:0 0 96px; color:#9fb3c8; }
+  .row input[type=range]{ flex:1; accent-color:#ffd166; }
+  .row output{ flex:0 0 52px; text-align:right; color:#ffd166; font-weight:bold; font-variant-numeric:tabular-nums; }
+  .hint{ font-size:11px; color:#9fb3c8; line-height:1.6; margin-top:8px; }
+  .cardTitle{ font-size:13px; color:#ffd166; font-weight:bold; margin-bottom:4px; }
+  #err{
+    display:none; background:#3a1b1b; border:1px solid #ff6b6b; color:#ffb199;
+    padding:10px 12px; border-radius:10px; font-size:13px; line-height:1.5;
+  }
+  #err.show{ display:block; }
+  a{ color:#9fb3c8; }
+  footer{ font-size:11px; color:#9fb3c8; text-align:center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🎤 こえメーター<small>声の大きさチェック</small></h1>
+
+  <div id="err"></div>
+
+  <div class="card" id="mainCard">
+    <div id="status">「はじめる」を押してマイクを許可してください</div>
+    <div id="db">--<small>dB</small></div>
+    <div id="label">待機中</div>
+
+    <div id="gaugeWrap">
+      <div id="gaugeBg"></div>
+      <div id="gauge"></div>
+      <div id="target"></div>
+      <div id="peakMark" style="left:0"></div>
+    </div>
+    <div id="ticks"><span>30</span><span>45</span><span>60</span><span>75</span><span>90</span><span>105</span></div>
+
+    <div id="stats">
+      <div class="stat"><b id="avg">--</b><span>平均 dB</span></div>
+      <div class="stat"><b id="max">--</b><span>最大 dB</span></div>
+      <div class="stat"><b id="inRange">--%</b><span>適正範囲の時間</span></div>
+      <div class="stat"><b id="time">0:00</b><span>計測時間</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cardTitle">推移（直近 約20秒）</div>
+    <canvas id="graph"></canvas>
+  </div>
+
+  <div class="btnRow">
+    <button id="startBtn">はじめる</button>
+    <button id="resetBtn" class="sub" disabled>リセット</button>
+  </div>
+
+  <div class="card">
+    <div class="cardTitle">設定</div>
+    <div class="row">
+      <label for="tmin">適正の下限</label>
+      <input type="range" id="tmin" min="30" max="100" value="55">
+      <output id="tminOut">55 dB</output>
+    </div>
+    <div class="row">
+      <label for="tmax">適正の上限</label>
+      <input type="range" id="tmax" min="35" max="110" value="75">
+      <output id="tmaxOut">75 dB</output>
+    </div>
+    <div class="row">
+      <label for="cal">補正値</label>
+      <input type="range" id="cal" min="-30" max="30" value="0">
+      <output id="calOut">+0 dB</output>
+    </div>
+    <div class="hint">
+      ・数値はマイクの感度に左右される<b>目安</b>です。騒音計の実測値とは異なります。<br>
+      ・「補正値」で表示をずらせます。手元の騒音計や、静かな部屋で 35〜40dB 程度になるよう合わせると使いやすくなります。<br>
+      ・目安：ささやき 30〜40／静かな会話 50〜60／通常の会話 60〜70／大声 80〜
+    </div>
+  </div>
+
+  <footer>音声は端末内で処理され、送信・保存されません。</footer>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const els = {
+    status:$('status'), db:$('db'), label:$('label'), gauge:$('gauge'), target:$('target'),
+    peakMark:$('peakMark'), avg:$('avg'), max:$('max'), inRange:$('inRange'), time:$('time'),
+    startBtn:$('startBtn'), resetBtn:$('resetBtn'), err:$('err'),
+    tmin:$('tmin'), tmax:$('tmax'), cal:$('cal'),
+    tminOut:$('tminOut'), tmaxOut:$('tmaxOut'), calOut:$('calOut'),
+    graph:$('graph'),
+  };
+
+  // 表示レンジ（dB）
+  const MIN_DB = 30, MAX_DB = 105;
+  // 静かな部屋で 0dBFS 換算の RMS → 目安の dB に変換するための基準値
+  const BASE_OFFSET = 95;
+  const HISTORY_SEC = 20;
+
+  const settings = loadSettings();
+  let audioCtx = null, analyser = null, stream = null, source = null;
+  let running = false, rafId = 0;
+  let buf = null;
+  let smooth = null;      // 表示用に平滑化した値
+  let peak = MIN_DB, peakAt = 0;
+  let sum = 0, count = 0, inRangeCount = 0, maxDb = MIN_DB;
+  let startedAt = 0, elapsedBefore = 0;
+  const history = [];     // {t, db}
+
+  // ---------- 設定 ----------
+  function loadSettings(){
+    let s = { tmin:55, tmax:75, cal:0 };
+    try{
+      const raw = localStorage.getItem('koe-meter-settings');
+      if(raw){ s = Object.assign(s, JSON.parse(raw)); }
+    }catch(e){}
+    return s;
+  }
+  function saveSettings(){
+    try{ localStorage.setItem('koe-meter-settings', JSON.stringify(settings)); }catch(e){}
+  }
+  function applySettingsToUI(){
+    els.tmin.value = settings.tmin; els.tmax.value = settings.tmax; els.cal.value = settings.cal;
+    els.tminOut.textContent = settings.tmin + ' dB';
+    els.tmaxOut.textContent = settings.tmax + ' dB';
+    els.calOut.textContent = (settings.cal >= 0 ? '+' : '') + settings.cal + ' dB';
+    const l = pct(settings.tmin), r = pct(settings.tmax);
+    els.target.style.left = l + '%';
+    els.target.style.width = Math.max(0, r - l) + '%';
+  }
+  els.tmin.addEventListener('input', () => {
+    settings.tmin = +els.tmin.value;
+    if(settings.tmax < settings.tmin + 5){ settings.tmax = settings.tmin + 5; }
+    saveSettings(); applySettingsToUI();
+  });
+  els.tmax.addEventListener('input', () => {
+    settings.tmax = +els.tmax.value;
+    if(settings.tmin > settings.tmax - 5){ settings.tmin = settings.tmax - 5; }
+    saveSettings(); applySettingsToUI();
+  });
+  els.cal.addEventListener('input', () => {
+    settings.cal = +els.cal.value; saveSettings(); applySettingsToUI();
+  });
+  applySettingsToUI();
+
+  function pct(db){
+    return Math.max(0, Math.min(100, (db - MIN_DB) / (MAX_DB - MIN_DB) * 100));
+  }
+
+  // ---------- マイク ----------
+  async function start(){
+    hideError();
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showError('このブラウザはマイク入力に対応していません。Chrome / Safari の最新版でお試しください。' +
+        (location.protocol !== 'https:' && location.hostname !== 'localhost'
+          ? '<br>※ https:// で開く必要があります。' : ''));
+      return;
+    }
+    els.startBtn.disabled = true;
+    els.status.textContent = 'マイクの許可を確認中…';
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false },
+        video:false
+      });
+    }catch(e){
+      els.startBtn.disabled = false;
+      els.status.textContent = '「はじめる」を押してマイクを許可してください';
+      if(e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')){
+        showError('マイクの使用が許可されませんでした。ブラウザのアドレスバー付近の設定からマイクを「許可」にして、もう一度お試しください。');
+      }else if(e && e.name === 'NotFoundError'){
+        showError('マイクが見つかりませんでした。端末にマイクが接続されているか確認してください。');
+      }else{
+        showError('マイクを開けませんでした：' + (e && e.message ? e.message : e));
+      }
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    if(audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); }catch(e){} }
+    source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0;
+    source.connect(analyser);
+    buf = new Float32Array(analyser.fftSize);
+
+    running = true;
+    startedAt = performance.now();
+    els.startBtn.textContent = 'とめる';
+    els.startBtn.className = 'stop';
+    els.startBtn.disabled = false;
+    els.resetBtn.disabled = false;
+    els.status.textContent = '計測中… 普段どおりに話してみましょう';
+    loop();
+  }
+
+  function stop(){
+    running = false;
+    cancelAnimationFrame(rafId);
+    elapsedBefore += performance.now() - startedAt;
+    if(source){ try{ source.disconnect(); }catch(e){} }
+    if(stream){ stream.getTracks().forEach(t => t.stop()); }
+    if(audioCtx){ try{ audioCtx.close(); }catch(e){} }
+    audioCtx = analyser = stream = source = null;
+    els.startBtn.textContent = 'つづける';
+    els.startBtn.className = '';
+    els.status.textContent = '停止中。「つづける」で再開、「リセット」でやり直し';
+    els.label.textContent = '停止中';
+    els.label.className = '';
+  }
+
+  function reset(){
+    if(running){ stop(); }
+    elapsedBefore = 0; sum = 0; count = 0; inRangeCount = 0; maxDb = MIN_DB;
+    peak = MIN_DB; peakAt = 0; smooth = null; history.length = 0;
+    els.db.innerHTML = '--<small>dB</small>';
+    els.avg.textContent = '--'; els.max.textContent = '--'; els.inRange.textContent = '--%';
+    els.time.textContent = '0:00';
+    els.gauge.style.width = '0%';
+    els.peakMark.style.left = '0%';
+    els.label.textContent = '待機中'; els.label.className = '';
+    els.status.textContent = '「はじめる」を押してマイクを許可してください';
+    els.startBtn.textContent = 'はじめる';
+    els.startBtn.className = '';
+    els.resetBtn.disabled = true;
+    drawGraph();
+  }
+
+  els.startBtn.addEventListener('click', () => { running ? stop() : start(); });
+  els.resetBtn.addEventListener('click', reset);
+
+  // 画面が隠れたら停止（iOS等での無音化対策）
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden && running){ stop(); }
+  });
+
+  // ---------- 計測ループ ----------
+  function measure(){
+    analyser.getFloatTimeDomainData(buf);
+    let s = 0;
+    for(let i = 0; i < buf.length; i++){ s += buf[i] * buf[i]; }
+    const rms = Math.sqrt(s / buf.length);
+    const dbfs = 20 * Math.log10(Math.max(rms, 1e-7));   // -140 〜 0
+    return dbfs + BASE_OFFSET + settings.cal;
+  }
+
+  function loop(){
+    if(!running) return;
+    rafId = requestAnimationFrame(loop);
+    const now = performance.now();
+    let db = measure();
+    db = Math.max(MIN_DB - 5, Math.min(MAX_DB + 5, db));
+
+    // 上がりは速く、下がりはゆっくり（メーター風）
+    if(smooth === null) smooth = db;
+    smooth = db > smooth ? smooth + (db - smooth) * 0.5 : smooth + (db - smooth) * 0.12;
+
+    // ピークホールド（1.5秒）
+    if(smooth >= peak || now - peakAt > 1500){ peak = smooth; peakAt = now; }
+
+    // 統計
+    sum += smooth; count++;
+    if(smooth > maxDb) maxDb = smooth;
+    if(smooth >= settings.tmin && smooth <= settings.tmax) inRangeCount++;
+
+    history.push({ t: now, db: smooth });
+    while(history.length && now - history[0].t > HISTORY_SEC * 1000){ history.shift(); }
+
+    render(now);
+  }
+
+  function render(now){
+    const v = Math.round(smooth);
+    els.db.innerHTML = v + '<small>dB</small>';
+    els.gauge.style.width = pct(smooth) + '%';
+    els.peakMark.style.left = 'calc(' + pct(peak) + '% - 1px)';
+
+    let cls = '', text;
+    if(smooth < settings.tmin - 12){ text = 'ほぼ無音'; cls = ''; }
+    else if(smooth < settings.tmin){ text = '小さめ'; cls = 'quiet'; }
+    else if(smooth <= settings.tmax){ text = 'ちょうどいい'; cls = 'good'; }
+    else if(smooth <= settings.tmax + 10){ text = '大きめ'; cls = 'loud'; }
+    else { text = '大きすぎ'; cls = 'loud'; }
+    els.label.textContent = text; els.label.className = cls;
+
+    els.avg.textContent = count ? Math.round(sum / count) : '--';
+    els.max.textContent = count ? Math.round(maxDb) : '--';
+    els.inRange.textContent = count ? Math.round(inRangeCount / count * 100) + '%' : '--%';
+    const sec = Math.floor((elapsedBefore + (now - startedAt)) / 1000);
+    els.time.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+
+    drawGraph(now);
+  }
+
+  // ---------- グラフ ----------
+  const ctx = els.graph.getContext('2d');
+  function sizeGraph(){
+    const dpr = window.devicePixelRatio || 1;
+    const w = els.graph.clientWidth, h = els.graph.clientHeight;
+    if(els.graph.width !== Math.round(w * dpr) || els.graph.height !== Math.round(h * dpr)){
+      els.graph.width = Math.round(w * dpr); els.graph.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h };
+  }
+  function drawGraph(now){
+    const { w, h } = sizeGraph();
+    ctx.clearRect(0, 0, w, h);
+    const y = db => h - (Math.max(MIN_DB, Math.min(MAX_DB, db)) - MIN_DB) / (MAX_DB - MIN_DB) * h;
+
+    // 適正範囲の帯
+    ctx.fillStyle = 'rgba(6,214,160,0.15)';
+    ctx.fillRect(0, y(settings.tmax), w, y(settings.tmin) - y(settings.tmax));
+
+    // 目盛り
+    ctx.strokeStyle = '#243247'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#9fb3c8'; ctx.font = '10px sans-serif';
+    for(let d = 45; d < MAX_DB; d += 15){
+      ctx.beginPath(); ctx.moveTo(0, y(d)); ctx.lineTo(w, y(d)); ctx.stroke();
+      ctx.fillText(d, 3, y(d) - 2);
+    }
+
+    if(history.length < 2){ return; }
+    const t0 = (now || performance.now()) - HISTORY_SEC * 1000;
+    const x = t => (t - t0) / (HISTORY_SEC * 1000) * w;
+
+    // 塗り
+    ctx.beginPath();
+    ctx.moveTo(x(history[0].t), h);
+    for(const p of history){ ctx.lineTo(x(p.t), y(p.db)); }
+    ctx.lineTo(x(history[history.length - 1].t), h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,209,102,0.18)';
+    ctx.fill();
+
+    // 線
+    ctx.beginPath();
+    for(let i = 0; i < history.length; i++){
+      const p = history[i];
+      i ? ctx.lineTo(x(p.t), y(p.db)) : ctx.moveTo(x(p.t), y(p.db));
+    }
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  window.addEventListener('resize', () => drawGraph());
+  drawGraph();
+
+  // ---------- エラー表示 ----------
+  function showError(html){ els.err.innerHTML = html; els.err.classList.add('show'); }
+  function hideError(){ els.err.classList.remove('show'); }
+})();
+</script>
+</body>
+</html>
